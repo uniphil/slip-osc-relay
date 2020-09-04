@@ -29,6 +29,29 @@ def connect_serial(port, baud):
     return Serial(maybes[0].device, baud)
 
 
+class Platypus(object):
+    def __init__(self, enable):
+        import sys
+        self.stderr = sys.stderr
+        self.enable = enable
+
+    def clear(self):
+        if self.enable is True:
+            self.write('REFRESH')
+
+    def notify(self, msg):
+        if self.enable is True:
+            self.write('NOTIFICATION:{}'.format(msg))
+
+    def progress(self, n):
+        if self.enable is True:
+            self.write('PROGRESS:{}'.format(n))
+
+    def write(self, msg):
+        self.stderr.write('{}\n'.format(msg))
+
+
+
 def config():
     import argparse
     parser = argparse.ArgumentParser(
@@ -46,6 +69,9 @@ def config():
         '--osc-port', type=int, default=8010,
         help='OSC UDP port (default 8010)')
     parser.add_argument(
+        '--platypus', action='store_true',
+        help='Enable additional meta-logging for platypus app')
+    parser.add_argument(
         '-v', '--verbose', action='store_true',
         help='Verbose output: monitor SLIP packets')
 
@@ -58,28 +84,36 @@ def config():
         parser.error('OSC_PORT must be greater than zero')
 
     return args.serial_port, args.serial_baud, args.osc_host, args.osc_port,\
-        args.verbose
+        args.platypus, args.verbose
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    serial_port, serial_baud, osc_host, osc_port, verbose = config()
+    serial_port, serial_baud, osc_host, osc_port, platypus, verbose = config()
+
+    plt = Platypus(platypus)
 
     while True:
+        plt.progress(25)
+        app_logger.info('Connecting to serial device...')
         try:
             ser = connect_serial(serial_port, serial_baud)
         except SerialException as e:
             app_logger.warn('Could not connect to serial: {}'.format(e))
+            sleep(0.1)
             continue
+        plt.progress(50)
         destination = UDP(osc_host, osc_port)
         try:
             reader = ReaderThread(ser, SLIP)
             reader.start()
+            plt.progress(75)
             _, slip = reader.connect()
-            app_logger.info('Relaying {} → {}'.format(
+            app_logger.info('Ready!\n\nRelaying {} → {}'.format(
                 ser.port, '{}:{}'.format(osc_host, osc_port)))
             slip.destination = destination
             slip.verbose = verbose
+            plt.progress(100)
             while reader.is_alive():
                 sleep(0.1)
         except SerialException as e:
