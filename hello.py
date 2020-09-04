@@ -40,8 +40,8 @@ def config():
         '--serial-port',
         help='Serial port (default: autodetect)')
     parser.add_argument(
-        '--osc-ip', default='0.0.0.0',
-        help='OSC UDP IP (default 0.0.0.0)')
+        '--osc-host', default='localhost',
+        help='OSC UDP host (default localhost)')
     parser.add_argument(
         '--osc-port', type=int, default=8010,
         help='OSC UDP port (default 8010)')
@@ -57,13 +57,13 @@ def config():
     if args.osc_port < 1:
         parser.error('OSC_PORT must be greater than zero')
 
-    return args.serial_port, args.serial_baud, args.osc_ip, args.osc_port,\
+    return args.serial_port, args.serial_baud, args.osc_host, args.osc_port,\
         args.verbose
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    serial_port, serial_baud, osc_ip, osc_port, verbose = config()
+    serial_port, serial_baud, osc_host, osc_port, verbose = config()
 
     while True:
         try:
@@ -71,13 +71,13 @@ if __name__ == '__main__':
         except SerialException as e:
             app_logger.warn('Could not connect to serial: {}'.format(e))
             continue
-        destination = UDP(osc_ip, osc_port)
+        destination = UDP(osc_host, osc_port)
         try:
             reader = ReaderThread(ser, SLIP)
             reader.start()
             _, slip = reader.connect()
             app_logger.info('Relaying {} → {}'.format(
-                ser.port, '{}:{}'.format(osc_ip, osc_port)))
+                ser.port, '{}:{}'.format(osc_host, osc_port)))
             slip.destination = destination
             slip.verbose = verbose
             while reader.is_alive():
