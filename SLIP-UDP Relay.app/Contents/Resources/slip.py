@@ -1,1 +1,1 @@
-/Users/phil/code/slip-osc-relay/slip.py
+../../../slip.py
